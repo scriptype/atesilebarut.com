@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "description": "",
-  "dependencies": {
-    "three": "^0.181.2"
+  "devDependencies": {
+    "http-server": "^14.1.1"
   }
 }
