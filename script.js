@@ -60,29 +60,84 @@ loader.load('baslik.fbx', (fbx) => {
     const scale = 50 / maxDim
     fbx.scale.multiplyScalar(scale)
 
-    // Make materials double-sided, opaque, and assign defaults where missing
+    // Make materials double-sided and opaque, preserve existing textures
     fbx.traverse((child) => {
         if (child.isMesh) {
-            if (!child.material) {
-                child.material = new THREE.MeshPhongMaterial({ color: 0x888888 })
-            }
             if (Array.isArray(child.material)) {
                 child.material.forEach(mat => {
                     mat.side = THREE.DoubleSide
-                    mat.transparent = false
+                    if (mat.transparent) {
+                        mat.transparent = false
+                    }
                     mat.opacity = 1
                 })
-            } else {
+            } else if (child.material) {
                 child.material.side = THREE.DoubleSide
-                child.material.transparent = false
+                if (child.material.transparent) {
+                    child.material.transparent = false
+                }
                 child.material.opacity = 1
+            } else {
+                child.material = new THREE.MeshPhongMaterial({ color: 0x888888 })
+                child.material.side = THREE.DoubleSide
             }
         }
     })
 
+    // Find the Ates meshes
+    const atesMeshes = []
+    let baslikParent = null
+    fbx.traverse((child) => {
+        if (child.name === 'Empty_Baslık_Ekranı') {
+            baslikParent = child
+        }
+    })
+
+    if (baslikParent) {
+        // First, hide all children with Ates in the name
+        baslikParent.traverse((child) => {
+            if (child.name.startsWith('Ates_')) {
+                child.visible = false
+            }
+        })
+
+        // Then find and collect the Ates meshes
+        for (let i = 1; i <= 11; i++) {
+            const meshName = `Ates_${String(i).padStart(2, '0')}`
+            baslikParent.traverse((child) => {
+                if (child.name === meshName) {
+                    atesMeshes.push({ name: meshName, mesh: child })
+                }
+            })
+        }
+        atesMeshes.sort((a, b) => parseInt(a.name.slice(-2)) - parseInt(b.name.slice(-2)))
+        console.log('Found Ates meshes:', atesMeshes.map(m => m.name))
+    }
+
+    // Show only the first Ates mesh
+    if (atesMeshes.length > 0) {
+        atesMeshes[0].mesh.visible = true
+    }
+
+    // Animation for cycling through meshes
+    let currentMeshIndex = 0
+    let lastMeshSwitchTime = -100
+    const meshVisibilityDuration = 1000 / 24
+
     // Animation loop
     const animate = () => {
         requestAnimationFrame(animate)
+        const now = performance.now()
+
+        if (atesMeshes.length > 0) {
+            if (now - lastMeshSwitchTime >= meshVisibilityDuration) {
+                atesMeshes[currentMeshIndex].mesh.visible = false
+                currentMeshIndex = (currentMeshIndex + 1) % atesMeshes.length
+                atesMeshes[currentMeshIndex].mesh.visible = true
+                lastMeshSwitchTime = now
+            }
+        }
+
         controls.update()
         renderer.render(scene, camera)
     }
